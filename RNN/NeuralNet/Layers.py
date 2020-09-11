@@ -1,15 +1,8 @@
-from .utils import np
+from .utils import *
 from .Activations import *
 from ._grads import *
 from .Initializers import *
 
-initialization_mapping = {"glorot_normal": glorot_normal, "he_normal": he_normal, 
-                          "glorot_normal": glorot_normal, "std": standard_normal,
-                          "he_uniform": he_uniform, "glorot_uniform": glorot_uniform}
-
-activation_mapping = {"sigmoid": sigmoid, "tanh":tanh, 
-                      "swish": swish, "relu" : relu, 
-                      "softmax": softmax}
 
 class Layer(object):
 
@@ -30,10 +23,10 @@ class LearnableLayer(object):
     def backward(self):
         raise NotImplementedError("backward() function not defined")
 
-    def update_params(self, grad_W, grad_b):
-        self.W = self.W - grad_W
-        self.bias = self.bias - grad_b
-
+    def update_params(self, grads_update):
+        for weight_name in grads_update:
+            self.paramater[weight_name]=self.paramater[weight_name]-grads_update[weight_name]
+        
 class Input(Layer):
 
     def __init__(self, return_dX=False):
@@ -69,8 +62,7 @@ class Dense(LearnableLayer):
         self.num_neurons = num_neurons
         self.weight_init = weight_init
         self.output = None
-        self.W = None
-        self.bias = None
+        self.paramater = {'W':None,'bias':None}
 
     def forward(self, inputs):
         """
@@ -82,20 +74,20 @@ class Dense(LearnableLayer):
         -------
         output: Output value LINEAR of the current layer.
         """
-        if self.W is None:
-            self.W = initialization_mapping[self.weight_init](weight_shape=(inputs.shape[1], self.num_neurons))
+        if self.paramater['W'] is None:
+            self.paramater['W']=initialization_mapping[self.weight_init](weight_shape=(inputs.shape[1], self.num_neurons))
     
-        if self.bias is None:
-            self.bias = initialization_mapping[self.weight_init](weight_shape=(1, self.num_neurons))
+        if self.paramater['bias'] is None:
+            self.paramater['bias']=initialization_mapping[self.weight_init](weight_shape=(1, self.num_neurons))
         
-        self.output = np.dot(inputs, self.W) + self.bias
+        self.output = np.dot(inputs,self.paramater['W'])+self.paramater['bias']
         return self.output
 
     def backward_layer(self, d_prev, _):
         """
         Compute gradient w.r.t X only.
         """
-        d_prev = np.dot(d_prev, self.W.T)
+        d_prev = np.dot(d_prev, self.paramater['W'].T)
         return d_prev
 
     def backward(self, d_prev, prev_layer):
@@ -114,16 +106,14 @@ class Dense(LearnableLayer):
         dW = np.dot(prev_layer.output.T, d_prev)
         db = np.sum(d_prev,axis=0)
         d_prev = self.backward_layer(d_prev, None)
-        return d_prev, dW, db
+        return d_prev, {'W':dW}, {'bias':db}
 
 
 class Dropout(Layer):
-
     """
     Refer to the paper: 
         http://jmlr.org/papers/volume15/srivastava14a/srivastava14a.pdf
     """
-
     def __init__(self, keep_prob):
         """
         keep_prob: (float) probability to keep neurons in network, use for dropout technique.

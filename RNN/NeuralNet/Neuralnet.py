@@ -49,8 +49,8 @@ class Model:
     def __call__(self, X, prediction=False):
         return self._forward(X, prediction)
 
-    def _update_params(self, grads_W, grads_b):
-        self.optimizer.step(grads_W, grads_b, self.learnable_layers)
+    def _update_params(self, grads):
+        self.optimizer.step(grads)
 
     def backward(self, Y, Y_hat, X):
         """
@@ -67,7 +67,7 @@ class Model:
             self.learnable_layers = [layer for layer in self.layers if isinstance(layer, LearnableLayer)]
             self.learnable_layers = self.learnable_layers[::-1]
 
-        grads_W, grads_b = [], []
+        grads = []
         
         dCost = self.loss_func.backward(Y_hat, Y)
         dA_prev, dW = dCost, None
@@ -75,12 +75,12 @@ class Model:
         for i in range(len(self.layers)-1, 0, -1):
             if isinstance(self.layers[i], LearnableLayer):
                 dA_prev, dW, db = self.layers[i].backward(dA_prev, self.layers[i-1])
-                grads_W.append(dW)
-                grads_b.append(db)
-                continue
-            dA_prev = self.layers[i].backward(dA_prev, self.layers[i-1])
+                dlayer = {'layer': self.layers[i], 'dWs': dW, 'dbs' : db}
+                grads.append(dlayer)
+            else:
+                dA_prev = self.layers[i].backward(dA_prev, self.layers[i-1])
 
-        self._update_params(grads_W, grads_b)
+        self._update_params(grads)
 
     def convertOneHot(self, input_):
         result = np.zeros((input_.size, input_.max()+1))

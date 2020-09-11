@@ -37,3 +37,6 @@ def softmax(z, axis=-1):
     return np.exp(z_prime) / np.sum(np.exp(z_prime), axis=axis, keepdims=True)
 
 
+activation_mapping = {"sigmoid": sigmoid, "tanh":tanh, 
+                      "swish": swish, "relu" : relu, 
+                      "softmax": softmax}

@@ -47,3 +47,8 @@ def standard_normal(weight_shape):
     Initialize weights according standard normal distribution with mean 0 variance 1.
     """
     return np.random.normal(size=weight_shape)
+
+
+initialization_mapping = {"glorot_normal": glorot_normal, "he_normal": he_normal, 
+                          "glorot_normal": glorot_normal, "std": standard_normal,
+                          "he_uniform": he_uniform, "glorot_uniform": glorot_uniform}
