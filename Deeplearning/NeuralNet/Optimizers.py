@@ -38,8 +38,6 @@ class SGD(Optimizers_):
                 grads_update[bias_name] = self.lr * layer_grad['dbs'][bias_name]
             layer_grad['layer'].update_params(grads_update)
 
-
-
 class SGDMomentum(Optimizers_):
 
     def __init__(self, alpha=0.01, beta=0.9):
