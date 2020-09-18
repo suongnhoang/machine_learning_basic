@@ -49,7 +49,7 @@ class Input(Layer):
 
 class Dense(LearnableLayer):
 
-    def __init__(self, num_neurons, weight_init="std"):
+    def __init__(self, num_neurons, weight_init="std", use_bias = True):
         """
         The fully connected layer.
         Parameters
@@ -63,6 +63,7 @@ class Dense(LearnableLayer):
         self.weight_init = weight_init
         self.output = None
         self.paramater = {'W':None,'bias':None}
+        self.use_bias = use_bias
 
     def forward(self, inputs):
         """
@@ -77,10 +78,14 @@ class Dense(LearnableLayer):
         if self.paramater['W'] is None:
             self.paramater['W']=initialization_mapping[self.weight_init](weight_shape=(inputs.shape[1], self.num_neurons))
     
-        if self.paramater['bias'] is None:
+        if self.paramater['bias'] is None and self.use_bias:
             self.paramater['bias']=initialization_mapping[self.weight_init](weight_shape=(1, self.num_neurons))
         
-        self.output = np.dot(inputs,self.paramater['W'])+self.paramater['bias']
+        self.output = np.dot(inputs,self.paramater['W'])
+        
+        if self.use_bias:
+            self.output += self.paramater['bias']
+        
         return self.output
 
     def backward_layer(self, d_prev, _):
@@ -103,10 +108,14 @@ class Dense(LearnableLayer):
         -------
         d_prev: gradient of J respect to A[l] at the current layer.
         """
+        dWs, dbs = None, None
         dW = np.dot(prev_layer.output.T, d_prev)
-        db = np.sum(d_prev,axis=0)
+        dWs = {'W':dW}
+        if self.use_bias:
+            db = np.sum(d_prev,axis=0)
+            dbs = {'bias':db}        
         d_prev = self.backward_layer(d_prev, None)
-        return d_prev, {'W':dW}, {'bias':db}
+        return d_prev, dWs, dbs
 
 
 class Dropout(Layer):

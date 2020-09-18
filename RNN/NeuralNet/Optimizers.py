@@ -101,9 +101,10 @@ class RMSProp(Optimizers_):
             for W_name in layer['s']['Ws']:
                 layer['s']['Ws'][W_name]=self.beta*layer['s']['Ws'][W_name]+(1-self.beta)*grads[i]['dWs'][W_name]**2
                 grads_update[W_name]=self.alpha*(grads[i]['dWs'][W_name]/(np.sqrt(layer['s']['Ws'][W_name]) + self.epsilon))
-            for b_name in layer['v']['bs']:
-                layer['s']['bs'][b_name]=self.beta*layer['s']['bs'][b_name]+(1-self.beta)*grads[i]['dbs'][b_name]**2
-                grads_update[b_name]=self.alpha * (grads[i]['dbs'][b_name]/(np.sqrt(layer['s']['bs'][b_name]) + self.epsilon))
+            if layer['v']['bs'] != None:
+                for b_name in layer['v']['bs']:
+                    layer['s']['bs'][b_name]=self.beta*layer['s']['bs'][b_name]+(1-self.beta)*grads[i]['dbs'][b_name]**2
+                    grads_update[b_name]=self.alpha * (grads[i]['dbs'][b_name]/(np.sqrt(layer['s']['bs'][b_name]) + self.epsilon))
             layer.update_params(grads_update)
 
 class Adam(Optimizers_):
@@ -127,9 +128,10 @@ class Adam(Optimizers_):
                 for weight_name in layer_grad['dWs']:
                     v['Ws'][weight_name] = np.zeros_like(layer_grad['dWs'][weight_name])
                     s['Ws'][weight_name] = np.zeros_like(layer_grad['dWs'][weight_name])
-                for bias_name in layer_grad['dbs']:
-                    v['bs'][bias_name] = np.zeros_like(layer_grad['dbs'][bias_name])
-                    s['bs'][bias_name] = np.zeros_like(layer_grad['dbs'][bias_name])
+                if layer_grad['dbs'] is not None:
+                    for bias_name in layer_grad['dbs']:
+                        v['bs'][bias_name] = np.zeros_like(layer_grad['dbs'][bias_name])
+                        s['bs'][bias_name] = np.zeros_like(layer_grad['dbs'][bias_name])
                 #Create a new dictionary to hold layer optimize paramaters: (layer__object, v, s)
                 layer = {}
                 layer['layer'] = layer_grad['layer']
@@ -149,12 +151,13 @@ class Adam(Optimizers_):
                 s_correct = layer['s']['Ws'][W_name]/(1-self.beta_2**self.t)
                 grads_update[W_name] = self.alpha*(v_correct/(np.sqrt(s_correct)+self.epsilon))
             
-            for b_name in layer['v']['bs']:
-                layer['v']['bs'][b_name]=self.beta_1*layer['v']['bs'][b_name]+(1-self.beta_1)*grads[i]['dbs'][b_name]
-                layer['s']['bs'][b_name]=self.beta_2*layer['s']['bs'][b_name]+(1-self.beta_2)*grads[i]['dbs'][b_name]**2
-                v_correct = layer['v']['bs'][b_name]/(1-self.beta_1**self.t)
-                s_correct = layer['s']['bs'][b_name]/(1-self.beta_2**self.t)
-                grads_update[b_name]=self.alpha*(v_correct/(np.sqrt(s_correct)+self.epsilon))
+            if layer['v']['bs'] is not None:
+                for b_name in layer['v']['bs']:
+                    layer['v']['bs'][b_name]=self.beta_1*layer['v']['bs'][b_name]+(1-self.beta_1)*grads[i]['dbs'][b_name]
+                    layer['s']['bs'][b_name]=self.beta_2*layer['s']['bs'][b_name]+(1-self.beta_2)*grads[i]['dbs'][b_name]**2
+                    v_correct = layer['v']['bs'][b_name]/(1-self.beta_1**self.t)
+                    s_correct = layer['s']['bs'][b_name]/(1-self.beta_2**self.t)
+                    grads_update[b_name]=self.alpha*(v_correct/(np.sqrt(s_correct)+self.epsilon))
             
             layer['layer'].update_params(grads_update)
         self.t += 1
