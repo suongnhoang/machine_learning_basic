@@ -1,4 +1,4 @@
-from .utils import np
+import numpy as np
 
 def he_normal(weight_shape):
     """
@@ -49,6 +49,9 @@ def standard_normal(weight_shape):
     return np.random.normal(size=weight_shape)
 
 
-initialization_mapping = {"glorot_normal": glorot_normal, "he_normal": he_normal, 
-                          "glorot_normal": glorot_normal, "std": standard_normal,
-                          "he_uniform": he_uniform, "glorot_uniform": glorot_uniform}
+initialization_mapping = {
+                        "glorot_normal": glorot_normal, "glorot_uniform": glorot_uniform,
+                        "xavier_normal": glorot_normal, "xavier_uniform": glorot_uniform,
+                        "std": standard_normal,
+                        "he_uniform": he_uniform, "he_normal": he_normal,
+                        }

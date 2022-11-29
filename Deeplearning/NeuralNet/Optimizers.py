@@ -1,4 +1,5 @@
-from .utils import np
+import numpy as np
+
 
 class Optimizers_: 
 
@@ -24,6 +25,7 @@ class Optimizers_:
         """
         raise NotImplementedError("step() function not defined")
 
+
 class SGD(Optimizers_):
 
     def __init__(self, lr=0.01):
@@ -37,6 +39,7 @@ class SGD(Optimizers_):
             for bias_name in layer_grad['dbs']:
                 grads_update[bias_name] = self.lr * layer_grad['dbs'][bias_name]
             layer_grad['layer'].update_params(grads_update)
+
 
 class SGDMomentum(Optimizers_):
 

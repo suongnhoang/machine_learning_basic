@@ -1,0 +1,12 @@
+__pycache__
+*/__pycache__
+**/__pycache__
+.vscode
+*/.vscode
+**/.vscode
+test.*
+*.onnx
+.DS_Store
+./Deeplearning/weights/*
+**/*.pkl
+*.pkl

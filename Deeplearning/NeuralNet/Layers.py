@@ -1,10 +1,14 @@
-from .utils import *
-from .Activations import *
+import numpy as np
+from abc import ABC
+
+from .activations import *
 from ._grads import *
 from .Initializers import *
 
 
-class Layer(object):
+class Layer(ABC):
+    def __init__(self):
+        pass
 
     def forward(self, X):
         raise NotImplementedError("forward() function not defined")
@@ -12,7 +16,10 @@ class Layer(object):
     def backward(self):
         raise NotImplementedError("backward() function not defined")
 
-class LearnableLayer(object):
+
+class LearnableLayer(ABC):
+    def __init__(self):
+        pass
 
     def forward(self, X):
         raise NotImplementedError("forward() function not defined")
@@ -26,12 +33,13 @@ class LearnableLayer(object):
     def update_params(self, grads_update):
         for weight_name in grads_update:
             self.paramater[weight_name]=self.paramater[weight_name]-grads_update[weight_name]
-        
-class Input(Layer):
 
+
+class Input(Layer):
     def __init__(self, return_dX=False):
         self.return_dX = return_dX
         self.output = None
+        super().__init__()
 
     def forward(self, X):
         self.output = X
@@ -64,6 +72,7 @@ class Dense(LearnableLayer):
         self.output = None
         self.paramater = {'W':None,'bias':None}
         self.use_bias = use_bias
+        super().__init__()
 
     def forward(self, inputs):
         """
@@ -129,6 +138,7 @@ class Dropout(Layer):
         """
         assert 0.0 < keep_prob < 1.0, "keep_prob must be in range [0, 1]."
         self.keep_prob = keep_prob
+        super().__init__()
 
     def forward(self, X, prediction=False):
         """
@@ -157,9 +167,10 @@ class Activation(Layer):
                                 relu, softmax]. Softmax activation must be at the last layer.
         
         """
-        assert activation in ["swish", "sigmoid", "tanh", "relu", "softmax"], "Unknown activation function: " + str(activation)
+        assert activation in activation_mapping.keys(), f"Unknown activation function: {activation}"
         self.activation = activation
         self.last = False
+        super().__init__()
 
     def forward(self, X):
         """
@@ -186,3 +197,157 @@ class Activation(Layer):
             return d_prev
         d_prev = d_prev * eval(self.activation + "_grad")(self.input)
         return d_prev
+
+
+class GNN(Layer):
+    def __init__(self,T,D):
+        """
+        Class initialization, takes hyper param T and D
+        T : aggregation step and D : feature vector size
+        W, A, b : parameters of the network. W and A is
+                  initialized using normal distribution
+                  with sigma = 0.4 and mean = 0
+        dLdW, dLdA, dLdb : gradient of the parameters
+        """
+        sigma = 0.4
+        self.T = T
+        self.D = D
+        self.W = sigma * np.random.randn(D,D)
+        self.A = sigma * np.random.randn(D)
+        self.b = 0
+
+        self.dLdW = np.zeros((D,D))
+        self.dLdA = np.zeros((D))
+        self.dLdb = 0
+        super().__init__()
+        
+    def aggregation(self, W, X, adj):
+        """
+        Function to calculate aggregation 2, here transpose 
+        is used to easily calculating the aggregation using 
+        dot product
+        Args :
+            W : D x D weight matrix 
+            a : Output of aggregation1 
+
+        Return :
+            x : W . a
+        """
+        a = np.dot(adj, X)
+        x = np.dot(W,np.transpose(a))
+        x = np.transpose(x)
+        return x
+
+    def forward(self, nnodes, adj, W = None, A = None, b = None):
+        """
+        forward method to calculate forward propagation of the nets
+        Args :
+            nnodes  : number of nodes in the batch
+            adj     : adjacency matrix
+            W       : parameter matrix W
+            A       : parameter vector A
+            b       : bias b
+        Return : 
+            slist       : vector of predictor value 
+            output list : vector of predicted class`
+        """
+        slist, outputlist, X = [], [], []       
+        # feature vector definition
+        feat =  np.zeros(self.D)
+        feat[0] = 1
+        
+        self.tempnnodes, self.tempadj = nnodes, adj
+
+        W = self.W if np.any(W == None) else W
+        A = self.A if np.any(A == None) else A
+        b = self.b if b == None else b
+
+        for i in range(adj.shape[0]):
+            X.append(np.tile(feat,[nnodes[i],1]))
+            for _ in range(self.T):
+                X[i] = relu(self.aggregation(W, X[i], adj[i]))
+            hG = np.sum(X[i], axis=0) #sum all node's feature vectors
+            s = np.dot(hG, A) + b # Predictor function
+            p = sigmoid(s)
+            output = np.where((p>0.5),1,0) #read_out
+            slist.append(s)
+            outputlist.append(int(output))
+        return slist, outputlist
+
+    def backward(self, loss, y, epsilon):
+        """
+        Backpropagation function to calculate and update 
+        the gradient of the neural network
+        Args :
+            loss    : loss vector
+            y       : true class label
+            epsilon : small pertubation value for numerical 
+                      differentiation 
+        """
+        
+        tempdLdW = np.zeros((self.D, self.D))
+        tempdLdA = np.zeros((self.D))
+        tempdLdb = 0
+        batchsize = len(loss)
+        
+        for i in range(self.D):
+            for j in range (self.D):
+                deltaW = np.zeros((self.D, self.D))
+                deltaW[i,j]=epsilon
+                Wepsilon = self.W + deltaW
+                sep,_ = self.forward(self.tempnnodes, self.tempadj, W=Wepsilon)
+                lossep = self.loss(sep, y)
+                for k in range(batchsize):
+                    tempdLdW[i,j] += (lossep[k] - loss[k])/epsilon
+                tempdLdW[i,j] = tempdLdW[i,j]/batchsize
+
+        for i in range(self.D):
+            deltaA = np.zeros((self.D))
+            deltaA[i] = epsilon
+            Aepsilon = self.A + deltaA
+            sep,_ = self.forward(self.tempnnodes, self.tempadj, A=Aepsilon)
+            lossep = self.loss(sep, y)   
+            for j in range(batchsize):
+                tempdLdA[i] += (lossep[j] - loss[j])/epsilon
+            tempdLdA[i] = tempdLdA[i]/batchsize
+
+        bepsilon = self.b + epsilon
+        sep,_ = self.forward(self.tempnnodes, self.tempadj,b=bepsilon)
+        lossep = self.loss(sep, y) 
+        for i in range(batchsize):
+            tempdLdb += (lossep[i] - loss[i])/epsilon
+        tempdLdb = tempdLdb/batchsize
+
+        self.dLdW = tempdLdW
+        self.dLdA = tempdLdA
+        self.dLdb = tempdLdb
+
+    def loss(self, s, y):
+        """
+        loss function
+        Args :
+            s   : vector of predictor values
+            y   : vector of true class labels
+        Return :
+            losslist : vector of loss values
+        """
+        losslist = []
+        for i in range(len(s)):
+            if np.exp(s[i]) > np.finfo(type(np.exp(s[i]))).max:
+                loss = y[i]*np.log(1+np.exp(-s[i])) + (1-y[i]) * s[i] #avoid overflow
+            else :
+                loss = y[i]*np.log(1+np.exp(-s[i])) + (1-y[i]) * np.log(1+np.exp(s[i]))
+            losslist.append(loss)
+        return losslist
+            
+    def updateweight(self, W, A, b):
+        """
+        update weight function
+        Args :
+            W: parameter matrix W
+            A: parameter vector A
+            b: bias b
+        """
+        self.W = W
+        self.A = A
+        self.b = b

@@ -1,4 +1,4 @@
-from .utils import np
+import numpy as np
 
 class CrossEntropy:
     
@@ -79,3 +79,4 @@ class BinaryCrossEntropy:
         m = len(y)
         grad = (y_hat - y)/m
         return grad
+

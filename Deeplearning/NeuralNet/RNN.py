@@ -1,8 +1,9 @@
-from .utils import *
-from .Activations import *
+import numpy as np
+
+from .activations import *
 from ._grads import *
 from .Initializers import initialization_mapping
-from .Layers import Layer, LearnableLayer
+from .Layers import LearnableLayer
 
 class SimpleRNN(LearnableLayer):
 
@@ -16,7 +17,7 @@ class SimpleRNN(LearnableLayer):
         units: (integer) number of neurons in the units.     
         weight_init: (string) either `he_normal`, `xavier_normal`, `he_uniform`, `glorot_uniform` or standard normal distribution.
         """
-        assert weight_init in ["std", "glorot_normal", "he_normal", "he_uniform", "glorot_uniform"],\
+        assert weight_init in initialization_mapping.keys(),\
                 "Unknow weight initialization type."
         assert activation in ["swish", "sigmoid", "tanh", "relu", swish, sigmoid, tanh, relu, None],\
                 "Unknown activation function: " + str(activation)

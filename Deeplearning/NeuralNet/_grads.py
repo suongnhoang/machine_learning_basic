@@ -1,4 +1,4 @@
-from .Activations import *
+from .activations import *
 
 def sigmoid_grad(z):
     """
