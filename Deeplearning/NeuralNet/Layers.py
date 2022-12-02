@@ -203,18 +203,19 @@ class GNN(Layer):
     def __init__(self,T,D):
         """
         Class initialization, takes hyper param T and D
-        T : aggregation step and D : feature vector size
-        W, A, b : parameters of the network. W and A is
-                  initialized using normal distribution
-                  with sigma = 0.4 and mean = 0
-        dLdW, dLdA, dLdb : gradient of the parameters
+        Args:
+            T : aggregation step
+            D : feature vector size
+        class_params:
+            W, A, b : parameters of the network. W and A is
+                    initialized using normal distribution
+                    with sigma = 0.4 and mean = 0
+            dLdW, dLdA, dLdb : gradient of the parameters
         """
         sigma = 0.4
-        self.T = T
-        self.D = D
-        self.W = sigma * np.random.randn(D,D)
-        self.A = sigma * np.random.randn(D)
-        self.b = 0
+        self.T, self.D = T, D
+
+        self.paramater = {'W':sigma * np.random.randn(D,D), 'A': sigma * np.random.randn(D),'bias':0}
 
         self.dLdW = np.zeros((D,D))
         self.dLdA = np.zeros((D))
@@ -229,7 +230,6 @@ class GNN(Layer):
         Args :
             W : D x D weight matrix 
             a : Output of aggregation1 
-
         Return :
             x : W . a
         """
@@ -238,7 +238,7 @@ class GNN(Layer):
         x = np.transpose(x)
         return x
 
-    def forward(self, nnodes, adj, W = None, A = None, b = None):
+    def forward(self, nnodes, adj):
         """
         forward method to calculate forward propagation of the nets
         Args :
@@ -258,20 +258,20 @@ class GNN(Layer):
         
         self.tempnnodes, self.tempadj = nnodes, adj
 
-        W = self.W if np.any(W == None) else W
-        A = self.A if np.any(A == None) else A
-        b = self.b if b == None else b
-
         for i in range(adj.shape[0]):
             X.append(np.tile(feat,[nnodes[i],1]))
+            # Message passing
             for _ in range(self.T):
-                X[i] = relu(self.aggregation(W, X[i], adj[i]))
-            hG = np.sum(X[i], axis=0) #sum all node's feature vectors
-            s = np.dot(hG, A) + b # Predictor function
-            p = sigmoid(s)
-            output = np.where((p>0.5),1,0) #read_out
+                X[i] = relu(self.aggregation(self.paramater['W'], X[i], adj[i]))
+            hG = np.sum(X[i], axis=0) #sum all node feature vectors
+            s = np.dot(hG, self.paramater['A']) + self.paramater['bias'] # Predictor function 
             slist.append(s)
+            
+            #read_out stage
+            p = sigmoid(s)
+            output = np.where((p>0.5),1,0)
             outputlist.append(int(output))
+        
         return slist, outputlist
 
     def backward(self, loss, y, epsilon):
@@ -284,7 +284,6 @@ class GNN(Layer):
             epsilon : small pertubation value for numerical 
                       differentiation 
         """
-        
         tempdLdW = np.zeros((self.D, self.D))
         tempdLdA = np.zeros((self.D))
         tempdLdb = 0
@@ -294,7 +293,7 @@ class GNN(Layer):
             for j in range (self.D):
                 deltaW = np.zeros((self.D, self.D))
                 deltaW[i,j]=epsilon
-                Wepsilon = self.W + deltaW
+                Wepsilon = self.paramater['W'] + deltaW
                 sep,_ = self.forward(self.tempnnodes, self.tempadj, W=Wepsilon)
                 lossep = self.loss(sep, y)
                 for k in range(batchsize):
@@ -304,14 +303,14 @@ class GNN(Layer):
         for i in range(self.D):
             deltaA = np.zeros((self.D))
             deltaA[i] = epsilon
-            Aepsilon = self.A + deltaA
+            Aepsilon = self.paramater['A'] + deltaA
             sep,_ = self.forward(self.tempnnodes, self.tempadj, A=Aepsilon)
             lossep = self.loss(sep, y)   
             for j in range(batchsize):
                 tempdLdA[i] += (lossep[j] - loss[j])/epsilon
             tempdLdA[i] = tempdLdA[i]/batchsize
 
-        bepsilon = self.b + epsilon
+        bepsilon = self.paramater['bias'] + epsilon
         sep,_ = self.forward(self.tempnnodes, self.tempadj,b=bepsilon)
         lossep = self.loss(sep, y) 
         for i in range(batchsize):
@@ -348,6 +347,6 @@ class GNN(Layer):
             A: parameter vector A
             b: bias b
         """
-        self.W = W
-        self.A = A
-        self.b = b
+        self.paramater['W'] = W
+        self.paramater['A'] = A
+        self.paramater['bias'] = b
